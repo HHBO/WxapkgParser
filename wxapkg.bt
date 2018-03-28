@@ -1,0 +1,69 @@
+// Define structures to parse program of weixin
+
+local int warnings = 0;
+local string temp_warning;
+
+// A hack to get warning messages to both "Warn" (show in status) and output to the "output" window
+void PrintWarning(string message) {
+    Warning(temp_warning);
+
+    // Ensure new-line, "Warning" statuses should not have them
+    SPrintf(temp_warning, "%s\n", message);
+    Printf(temp_warning);
+
+    // Hack to trigger a more generic "look at warnings in output"
+    warnings++;
+}
+
+//struct of dataIndex
+typedef struct{
+	int fileNameLen <comment="length of filename">;
+	char fileName[fileNameLen] <comment="file name">;
+	int fileOffset <comment="file offset">;
+	int fileLen <comment="file size">;
+} dataIndex_table <read=DataIndexName, optimize=false>;
+
+string DataIndexName(dataIndex_table &dataIndex){
+	return dataIndex.fileName;
+}
+
+
+struct {
+    BigEndian();
+	struct {
+		byte magic1 <comment="magic number 1, should be -66">;
+		int  unknow <comment="unknow">;
+		int  offsetLen <comment="offsetLen">;
+		int  bodyDataLen <comment="bodyDataLen">;
+		byte magic2 <comment="magic number 2, should be -19">;
+		int  fileCount <comment="file count">;
+
+		if(magic1 != -66 || magic2 != -19){
+			PrintWarning("Invalid wxapkg file");
+        return -1;
+		}
+	} header;
+
+	local quad dataIndex_offset = 1 + 4 + 4 + 4 + 1 + 4;
+
+	if(file.header.fileCount > 0){
+		FSeek(dataIndex_offset);
+        struct{
+		    dataIndex_table dataIndex_table_element[file.header.fileCount];
+        }data_header_table;
+	}
+
+}file;
+
+
+// It's not really useful to see just the last warning, so inform us how many warnings we should see in output
+if(warnings > 1) {
+    Warning("%d warnings have occured and logged to the output box!", warnings);
+}
+
+// This will make the template show "Template executed successfully."
+if(warnings != 0) {
+    SPrintf(temp_warning, "%d warnings found, template may not have run successfully!", warnings);
+    return temp_warning;
+}
+
